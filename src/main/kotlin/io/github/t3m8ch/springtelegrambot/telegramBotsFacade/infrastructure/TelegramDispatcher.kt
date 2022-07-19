@@ -1,48 +1,47 @@
 package io.github.t3m8ch.springtelegrambot.telegramBotsFacade.infrastructure
 
 import io.github.t3m8ch.springtelegrambot.telegramBotsFacade.config.TelegramBotConfig
-import io.github.t3m8ch.springtelegrambot.telegramBotsFacade.interfaces.Command
-import org.slf4j.LoggerFactory
+import io.github.t3m8ch.springtelegrambot.telegramBotsFacade.context.Context
+import io.github.t3m8ch.springtelegrambot.telegramBotsFacade.context.impl.MessageContext
+import io.github.t3m8ch.springtelegrambot.telegramBotsFacade.handler.HandlerFactory
 import org.springframework.stereotype.Component
 import org.telegram.telegrambots.bots.TelegramLongPollingBot
+import org.telegram.telegrambots.meta.api.interfaces.BotApiObject
 import org.telegram.telegrambots.meta.api.objects.Message
 import org.telegram.telegrambots.meta.api.objects.Update
+import kotlin.reflect.KClass
 
 @Component
 class TelegramDispatcher(private val config: TelegramBotConfig) : TelegramLongPollingBot() {
-    private val commands = mutableListOf<Command<*>>()
+    private val handlerFactories: MutableList<HandlerFactory> = mutableListOf()
+    fun addHandlerFactory(factory: HandlerFactory) = run { handlerFactories += factory }
 
     override fun getBotToken() = config.botToken
     override fun getBotUsername() = config.botUsername
 
     override fun onUpdateReceived(update: Update) {
-        logger.info("Update has arrived")
+        val updateType = getUpdateType(update) ?: return
+        val contextType = getContextType(updateType) ?: return
 
-        if (update.hasMessage()) {
-            logger.info("Update type is Message")
+        val specificTypeHandlersFactory = handlerFactories.asSequence().filter { it.contextType == contextType }
+        val context = createContext(contextType, update) ?: return
+        val filteredHandlers = specificTypeHandlersFactory.firstOrNull { it.filter(context) } ?: return
 
-            @Suppress("UNCHECKED_CAST")
-            val messageCommand = commands.asSequence()
-                .filter { it.objectType == Message::class }
-                .firstOrNull { (it as Command<Message>).filter.check(update.message) }
-
-            if (messageCommand == null) {
-                logger.info("Update has no command")
-                return
-            }
-
-            @Suppress("UNCHECKED_CAST")
-            (messageCommand as Command<Message>).execute(update.message)
-
-            logger.info("Update executed")
-        }
+        filteredHandlers.create().handle(context)
     }
 
-    fun addCommand(command: Command<*>) {
-        commands += command
+    private fun getUpdateType(update: Update): KClass<out BotApiObject>? = when {
+        update.hasMessage() -> Message::class
+        else -> null
     }
 
-    companion object {
-        private val logger = LoggerFactory.getLogger(TelegramDispatcher::class.java)
+    private fun getContextType(updateType: KClass<out BotApiObject>): KClass<out Context>? = when (updateType) {
+        Message::class -> MessageContext::class
+        else -> null
+    }
+
+    private fun createContext(contextType: KClass<out Context>, update: Update): Context? = when (contextType) {
+        MessageContext::class -> MessageContext(this, update.message)
+        else -> null
     }
 }
