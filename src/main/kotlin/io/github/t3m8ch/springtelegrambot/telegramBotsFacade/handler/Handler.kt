@@ -3,10 +3,6 @@ package io.github.t3m8ch.springtelegrambot.telegramBotsFacade.handler
 import io.github.t3m8ch.springtelegrambot.telegramBotsFacade.context.Context
 import kotlin.reflect.KClass
 
-class Handler(
-    val handle: (ctx: Context) -> Unit,
-)
-
 class HandlerConfigurationWithoutContextType<out T : Context>(
     configure: HandlerConfigurationWithoutContextType<T>.() -> Unit
 ) {
@@ -26,7 +22,7 @@ class HandlerConfigurationWithoutContextType<out T : Context>(
     }
 }
 
-abstract class HandlerFactory(configure: HandlerFactory.() -> Unit) {
+abstract class Handler(configure: Handler.() -> Unit) {
     lateinit var contextType: KClass<out Context>
         private set
 
@@ -50,6 +46,4 @@ abstract class HandlerFactory(configure: HandlerFactory.() -> Unit) {
         filter = config.filter
         handle = config.handle
     }
-
-    fun create() = Handler(handle)
 }

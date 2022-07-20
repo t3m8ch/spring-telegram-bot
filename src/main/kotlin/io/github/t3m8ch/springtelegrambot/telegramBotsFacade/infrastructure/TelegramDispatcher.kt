@@ -3,7 +3,7 @@ package io.github.t3m8ch.springtelegrambot.telegramBotsFacade.infrastructure
 import io.github.t3m8ch.springtelegrambot.telegramBotsFacade.config.TelegramBotConfig
 import io.github.t3m8ch.springtelegrambot.telegramBotsFacade.context.Context
 import io.github.t3m8ch.springtelegrambot.telegramBotsFacade.context.impl.MessageContext
-import io.github.t3m8ch.springtelegrambot.telegramBotsFacade.handler.HandlerFactory
+import io.github.t3m8ch.springtelegrambot.telegramBotsFacade.handler.Handler
 import org.springframework.stereotype.Component
 import org.telegram.telegrambots.bots.TelegramLongPollingBot
 import org.telegram.telegrambots.meta.api.interfaces.BotApiObject
@@ -13,8 +13,8 @@ import kotlin.reflect.KClass
 
 @Component
 class TelegramDispatcher(private val config: TelegramBotConfig) : TelegramLongPollingBot() {
-    private val handlerFactories: MutableList<HandlerFactory> = mutableListOf()
-    fun addHandlerFactory(factory: HandlerFactory) = run { handlerFactories += factory }
+    private val handlers: MutableList<Handler> = mutableListOf()
+    fun addHandler(handler: Handler) = run { handlers += handler }
 
     override fun getBotToken() = config.botToken
     override fun getBotUsername() = config.botUsername
@@ -23,11 +23,11 @@ class TelegramDispatcher(private val config: TelegramBotConfig) : TelegramLongPo
         val updateType = getUpdateType(update) ?: return
         val contextType = getContextType(updateType) ?: return
 
-        val specificTypeHandlersFactory = handlerFactories.asSequence().filter { it.contextType == contextType }
+        val specificTypeHandlers = handlers.asSequence().filter { it.contextType == contextType }
         val context = createContext(contextType, update) ?: return
-        val filteredHandlers = specificTypeHandlersFactory.firstOrNull { it.filter(context) } ?: return
+        val filteredHandlers = specificTypeHandlers.firstOrNull { it.filter(context) } ?: return
 
-        filteredHandlers.create().handle(context)
+        filteredHandlers.handle(context)
     }
 
     private fun getUpdateType(update: Update): KClass<out BotApiObject>? = when {
