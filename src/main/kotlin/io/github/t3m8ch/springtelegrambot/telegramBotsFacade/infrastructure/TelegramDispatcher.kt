@@ -12,10 +12,10 @@ import org.telegram.telegrambots.meta.api.objects.Update
 import kotlin.reflect.KClass
 
 @Component
-class TelegramDispatcher(private val config: TelegramBotConfig) : TelegramLongPollingBot() {
-    private val handlers: MutableList<Handler> = mutableListOf()
-    fun addHandler(handler: Handler) = run { handlers += handler }
-
+class TelegramDispatcher(
+    private val config: TelegramBotConfig,
+    private val handlers: List<Handler>,
+) : TelegramLongPollingBot() {
     override fun getBotToken() = config.botToken
     override fun getBotUsername() = config.botUsername
 
